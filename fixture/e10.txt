@@ -1,0 +1,2 @@
+WOGHAW E-10 synthetic fixture.
+Target of the human-gate binding test. No meaning beyond the experiment.
