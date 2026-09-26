@@ -1,0 +1,75 @@
+name: WOGHAW E-16 harness retry semantics
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  e16:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record environment
+        run: |
+          node --version
+          echo "RUNNER_TEMP=$RUNNER_TEMP"
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+
+      - name: E16-A — retry enabled (max-retries=1)
+        env:
+          E16_CASE: E16-A
+          GH_AW_HARNESS_MAX_RETRIES: "1"
+          GH_AW_HARNESS_INITIAL_DELAY_MS: "1"
+          GH_AW_HARNESS_STARTUP_RETRIES: "0"
+        run: |
+          mkdir -p "$RUNNER_TEMP/a_ws"
+          export E16_WORKSPACE="$RUNNER_TEMP/a_ws"
+          export E16_EXTERNAL_LOG="$RUNNER_TEMP/e16_external_effect_a.log"
+          export E16_OBSERVATIONS="$RUNNER_TEMP/e16_child_obs_a.jsonl"
+          export E16_RESULT="$GITHUB_WORKSPACE/results/e16a.json"
+          : > "$E16_EXTERNAL_LOG"; : > "$E16_OBSERVATIONS"
+          node e16_driver.cjs
+
+      - name: E16-B — retries disabled (max-retries=0)
+        env:
+          E16_CASE: E16-B
+          GH_AW_HARNESS_MAX_RETRIES: "0"
+          GH_AW_HARNESS_INITIAL_DELAY_MS: "1"
+          GH_AW_HARNESS_STARTUP_RETRIES: "0"
+        run: |
+          mkdir -p "$RUNNER_TEMP/b_ws"
+          export E16_WORKSPACE="$RUNNER_TEMP/b_ws"
+          export E16_EXTERNAL_LOG="$RUNNER_TEMP/e16_external_effect_b.log"
+          export E16_OBSERVATIONS="$RUNNER_TEMP/e16_child_obs_b.jsonl"
+          export E16_RESULT="$GITHUB_WORKSPACE/results/e16b.json"
+          : > "$E16_EXTERNAL_LOG"; : > "$E16_OBSERVATIONS"
+          node e16_driver.cjs
+
+      - name: E16-C — default inherited (no GH_AW_HARNESS_* set)
+        env:
+          E16_CASE: E16-C-defaults
+        run: |
+          mkdir -p "$RUNNER_TEMP/c_ws"
+          export E16_WORKSPACE="$RUNNER_TEMP/c_ws"
+          export E16_EXTERNAL_LOG="$RUNNER_TEMP/e16_external_effect_c.log"
+          export E16_OBSERVATIONS="$RUNNER_TEMP/e16_child_obs_c.jsonl"
+          export E16_RESULT="$GITHUB_WORKSPACE/results/e16c.json"
+          : > "$E16_EXTERNAL_LOG"; : > "$E16_OBSERVATIONS"
+          node e16_driver.cjs
+
+      - name: Upstream hashes
+        run: |
+          cd upstream && sha256sum *.cjs *.sh > "$GITHUB_WORKSPACE/results/upstream_hashes.txt"
+          cd "$GITHUB_WORKSPACE" && sha256sum e16_driver.cjs e16_child_stub.js >> results/upstream_hashes.txt
+          cat results/upstream_hashes.txt
+
+      - name: Commit results
+        run: |
+          git config user.name "WO E16 Runner"
+          git config user.email "1210407+Theiamania@users.noreply.github.com"
+          git add results
+          git commit -m "e16: results from run ${GITHUB_RUN_ID} attempt ${GITHUB_RUN_ATTEMPT}"
+          git push
