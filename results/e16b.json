@@ -1,0 +1,66 @@
+{
+  "case": "E16-B",
+  "node_version": "v22.23.2",
+  "gh_aw_version_pinned": "v0.89.21",
+  "env_requested": {
+    "GH_AW_HARNESS_MAX_RETRIES": "0",
+    "GH_AW_HARNESS_INITIAL_DELAY_MS": "1",
+    "GH_AW_HARNESS_STARTUP_RETRIES": "0"
+  },
+  "resolved_config_from_upstream": {
+    "maxRetries": 0,
+    "initialDelayMs": 1,
+    "backoffMultiplier": 2,
+    "maxDelayMs": 60000
+  },
+  "loop_return_value": {
+    "exitCode": 42,
+    "attempts": 1
+  },
+  "attempt_records": [
+    {
+      "attempt_index": 0,
+      "child_pid_reported": 2057,
+      "exit_code": 42,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "child_invocations_observed": 1,
+  "external_effect_log": [
+    {
+      "child_invocation": 1,
+      "timestamp": "2026-09-26T13:15:11.941Z",
+      "pid": 2057,
+      "ppid": 2050,
+      "argv": [],
+      "claude_session_env": null
+    }
+  ],
+  "child_observations": [
+    {
+      "child_invocation": 1,
+      "pid": 2057,
+      "ppid": 2050,
+      "workspace_marker_existed": false,
+      "workspace_marker_content_before": null,
+      "external_log_lines_before": 0,
+      "env_sample": {
+        "GH_AW_HARNESS_MAX_RETRIES": "0",
+        "GH_AW_HARNESS_STARTUP_RETRIES": "0"
+      },
+      "action": "wrote_marker_then_failed",
+      "exit_code": 42
+    }
+  ],
+  "workspace_marker_final": "attempt=1\n",
+  "distinct_child_pids": [
+    2057
+  ],
+  "driver_log": [
+    "resolveRetryConfig => {\"maxRetries\":0,\"initialDelayMs\":1,\"backoffMultiplier\":2,\"maxDelayMs\":60000}",
+    "runAttempt(0) => exit=42 pid=2057",
+    "handleFailure(attempt=0, exit=42, maxRetries=0) => retry"
+  ]
+}

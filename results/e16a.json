@@ -1,0 +1,104 @@
+{
+  "case": "E16-A",
+  "node_version": "v22.23.2",
+  "gh_aw_version_pinned": "v0.89.21",
+  "env_requested": {
+    "GH_AW_HARNESS_MAX_RETRIES": "1",
+    "GH_AW_HARNESS_INITIAL_DELAY_MS": "1",
+    "GH_AW_HARNESS_STARTUP_RETRIES": "0"
+  },
+  "resolved_config_from_upstream": {
+    "maxRetries": 1,
+    "initialDelayMs": 1,
+    "backoffMultiplier": 2,
+    "maxDelayMs": 60000
+  },
+  "loop_return_value": {
+    "exitCode": 0,
+    "attempts": 2
+  },
+  "attempt_records": [
+    {
+      "attempt_index": 0,
+      "child_pid_reported": 2033,
+      "exit_code": 42,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "slept_ms_requested": 1
+    },
+    {
+      "attempt_index": 1,
+      "child_pid_reported": 2040,
+      "exit_code": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "child_invocations_observed": 2,
+  "external_effect_log": [
+    {
+      "child_invocation": 1,
+      "timestamp": "2026-09-26T13:15:11.830Z",
+      "pid": 2033,
+      "ppid": 2026,
+      "argv": [],
+      "claude_session_env": null
+    },
+    {
+      "child_invocation": 2,
+      "timestamp": "2026-09-26T13:15:11.859Z",
+      "pid": 2040,
+      "ppid": 2026,
+      "argv": [],
+      "claude_session_env": null
+    }
+  ],
+  "child_observations": [
+    {
+      "child_invocation": 1,
+      "pid": 2033,
+      "ppid": 2026,
+      "workspace_marker_existed": false,
+      "workspace_marker_content_before": null,
+      "external_log_lines_before": 0,
+      "env_sample": {
+        "GH_AW_HARNESS_MAX_RETRIES": "1",
+        "GH_AW_HARNESS_STARTUP_RETRIES": "0"
+      },
+      "action": "wrote_marker_then_failed",
+      "exit_code": 42
+    },
+    {
+      "child_invocation": 2,
+      "pid": 2040,
+      "ppid": 2026,
+      "workspace_marker_existed": true,
+      "workspace_marker_content_before": "attempt=1",
+      "external_log_lines_before": 1,
+      "env_sample": {
+        "GH_AW_HARNESS_MAX_RETRIES": "1",
+        "GH_AW_HARNESS_STARTUP_RETRIES": "0"
+      },
+      "action": "observed_prior_state_then_succeeded",
+      "exit_code": 0
+    }
+  ],
+  "workspace_marker_final": "attempt=1\nattempt=2\n",
+  "distinct_child_pids": [
+    2033,
+    2040
+  ],
+  "driver_log": [
+    "resolveRetryConfig => {\"maxRetries\":1,\"initialDelayMs\":1,\"backoffMultiplier\":2,\"maxDelayMs\":60000}",
+    "runAttempt(0) => exit=42 pid=2033",
+    "handleFailure(attempt=0, exit=42, maxRetries=1) => retry",
+    "retry 1/1: sleeping 1ms before next attempt (fresh run)",
+    "retry 1/1: woke up, next delay will be 2ms",
+    "runAttempt(1) => exit=0 pid=2040",
+    "success on attempt 2: totalDuration=0s"
+  ]
+}
