@@ -25,7 +25,7 @@ jobs:
           GH_AW_HARNESS_INITIAL_DELAY_MS: "1"
           GH_AW_HARNESS_STARTUP_RETRIES: "0"
         run: |
-          mkdir -p "$RUNNER_TEMP/a_ws"
+          mkdir -p "$RUNNER_TEMP/a_ws" "$GITHUB_WORKSPACE/results"
           export E16_WORKSPACE="$RUNNER_TEMP/a_ws"
           export E16_EXTERNAL_LOG="$RUNNER_TEMP/e16_external_effect_a.log"
           export E16_OBSERVATIONS="$RUNNER_TEMP/e16_child_obs_a.jsonl"
@@ -40,7 +40,7 @@ jobs:
           GH_AW_HARNESS_INITIAL_DELAY_MS: "1"
           GH_AW_HARNESS_STARTUP_RETRIES: "0"
         run: |
-          mkdir -p "$RUNNER_TEMP/b_ws"
+          mkdir -p "$RUNNER_TEMP/b_ws" "$GITHUB_WORKSPACE/results"
           export E16_WORKSPACE="$RUNNER_TEMP/b_ws"
           export E16_EXTERNAL_LOG="$RUNNER_TEMP/e16_external_effect_b.log"
           export E16_OBSERVATIONS="$RUNNER_TEMP/e16_child_obs_b.jsonl"
@@ -52,7 +52,7 @@ jobs:
         env:
           E16_CASE: E16-C-defaults
         run: |
-          mkdir -p "$RUNNER_TEMP/c_ws"
+          mkdir -p "$RUNNER_TEMP/c_ws" "$GITHUB_WORKSPACE/results"
           export E16_WORKSPACE="$RUNNER_TEMP/c_ws"
           export E16_EXTERNAL_LOG="$RUNNER_TEMP/e16_external_effect_c.log"
           export E16_OBSERVATIONS="$RUNNER_TEMP/e16_child_obs_c.jsonl"
