@@ -1,0 +1,44 @@
+name: WOGHAW E-01 deterministic tests
+# No AI, no provider secrets. Must be dispatched on the PR branch; verifies the exact head SHA.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_head_sha:
+        description: "PR head SHA that must be under test"
+        required: true
+        type: string
+      wo_attempt_id:
+        description: "WO Attempt id"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify target SHA and change scope
+        env:
+          EXPECTED: ${{ inputs.expected_head_sha }}
+        run: |
+          set -eu
+          HEAD_SHA=$(git rev-parse HEAD)
+          echo "e01_tests head=${HEAD_SHA} expected=${EXPECTED}"
+          test "${HEAD_SHA}" = "${EXPECTED}"
+          CHANGED=$(git diff --name-only origin/main...HEAD | sort)
+          echo "changed_files:"; echo "${CHANGED}"
+          test "${CHANGED}" = "fixture/e01/normalize.py"
+          for f in fixture/e01/SPEC.md fixture/e01/test_normalize.py; do
+            test "$(git rev-parse HEAD:$f)" = "$(git rev-parse origin/main:$f)"
+          done
+          echo "scope_check=PASS (only normalize.py changed; SPEC and tests identical to main)"
+      - name: Run tests
+        run: |
+          set -o pipefail
+          python3 --version
+          python3 -m unittest -v fixture/e01/test_normalize.py 2>&1 | tee /tmp/e01_tests.txt
+          echo "e01_tests exit=${PIPESTATUS[0]} result_sha256=$(sha256sum /tmp/e01_tests.txt | cut -d' ' -f1)"

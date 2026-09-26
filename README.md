@@ -12,4 +12,10 @@ Private, disposable laboratory for WOGHAW-V01 (WO gh-aw architecture hypothesis)
   No reversibility is assumed: at the end of WOGHAW-V01 the lab is to be deleted, not made private again.
 - E-10: `.github/workflows/woghaw-e10-gate.yml` (deterministic, no AI) reaches environment `woghaw-e10`.
 
-No secrets. No WO product code. No consumer-project code. No private data.
+- FASE 1 E-04/E-01 (2026-09-26): `woghaw-e04-boundary`, `woghaw-e01-impl` (Claude), `woghaw-e01-audit` (Codex),
+  `woghaw-e01-fix` (Claude, only if materially needed), `woghaw-e01-tests.yml` (deterministic, no provider secrets).
+  All billable workflows are `workflow_dispatch` only; agent jobs are read-only; effects only via safe outputs.
+  Fixture: `fixture/e01/` (synthetic `slugify`, stdlib only).
+
+Repository secrets (names only): ANTHROPIC_API_KEY, OPENAI_API_KEY (lab only; to be revoked at the end of V01).
+No WO product code. No consumer-project code. No private data.
