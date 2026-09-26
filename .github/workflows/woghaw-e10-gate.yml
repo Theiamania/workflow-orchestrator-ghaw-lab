@@ -1,0 +1,40 @@
+name: WOGHAW E-10 human gate
+# Deterministic, no AI. Reaches the GitHub environment gate `woghaw-e10`.
+# This job does NOT accept or merge anything: WO (external checker) decides Acceptance.
+on:
+  workflow_dispatch:
+    inputs:
+      case:
+        description: "E-10 case"
+        required: true
+        type: choice
+        options: ["E10A", "E10B"]
+      gate_id:
+        description: "WO gate_id"
+        required: true
+        type: string
+      pr_number:
+        description: "Target PR number"
+        required: true
+        type: string
+      expected_head_sha:
+        description: "Target PR head SHA"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    environment: woghaw-e10
+    steps:
+      - name: GitHub environment gate passed
+        env:
+          E10_CASE: ${{ inputs.case }}
+          E10_GATE_ID: ${{ inputs.gate_id }}
+          E10_PR: ${{ inputs.pr_number }}
+          E10_SHA: ${{ inputs.expected_head_sha }}
+        run: |
+          echo "e10 case=${E10_CASE} gate_id=${E10_GATE_ID} pr=${E10_PR} expected_head_sha=${E10_SHA}"
+          echo "github_gate=PASSED run_id=${GITHUB_RUN_ID} run_attempt=${GITHUB_RUN_ATTEMPT} at=$(date -u +%FT%TZ)"
+          echo "this job performs no acceptance and no merge"
