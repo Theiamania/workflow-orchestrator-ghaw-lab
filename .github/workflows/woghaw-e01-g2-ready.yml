@@ -1,0 +1,52 @@
+name: WOGHAW E-01 G-E01-2 ready executor (no AI)
+# INSTRUMENTAL_TRIGGER_EXCEPTION (lab transport only). Identity: GITHUB_TOKEN (github-actions[bot]).
+# Scope: AR-E01-2 authorises PR #5 draft -> ready. No merge here. Fail-closed on any checker/binding failure.
+on:
+  push:
+    branches: [woghaw-e01-g2-ready]
+permissions: {}
+concurrency:
+  group: woghaw-e01-g2-ready
+  cancel-in-progress: false
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+    steps:
+      - name: single attempt guard
+        run: test "$GITHUB_RUN_ATTEMPT" = "1"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo
+          sparse-checkout: .wo
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: wo-journal
+          path: _journal
+          persist-credentials: false
+      - name: WO acceptance checker (pre-ready)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 _wo/.wo/wo_accept_v4.py _journal/journal/phase1.jsonl pre-ready | tee /tmp/acc.json; rc=${PIPESTATUS[0]}; echo "::notice title=WO_ACCEPTANCE_PRE_READY::$(cat /tmp/acc.json)"; echo "journal_head=$(git -C _journal rev-parse HEAD)"; exit $rc
+      - name: mark PR #5 ready for review and re-observe
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const H = '736d9e1fb32b1537c0316ee1b16ce5f58c1c0493', B = 'b1bd74d4e1713127053f5ad6d95fabea502b1855';
+            const {owner, repo} = context.repo;
+            const snap = p => ({state: p.state, draft: p.draft, merged: p.merged, head_sha: p.head.sha, base_sha: p.base.sha, updated_at: p.updated_at});
+            const before = (await github.rest.pulls.get({owner, repo, pull_number: 5})).data;
+            if (before.state !== 'open' || before.merged || !before.draft || before.head.sha !== H || before.base.sha !== B) {
+              core.setFailed('binding changed before ready: ' + JSON.stringify(snap(before))); return; }
+            const res = await github.graphql('mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{isDraft number}}}', {id: before.node_id});
+            const after = (await github.rest.pulls.get({owner, repo, pull_number: 5})).data;
+            const out = {executor: 'github-actions[bot] (GITHUB_TOKEN)', at: new Date().toISOString(), graphql: res, before: snap(before), after: snap(after)};
+            core.notice(JSON.stringify(out), {title: 'DRAFT_TRANSITION'});
+            if (after.state !== 'open' || after.merged || after.draft !== false || after.head.sha !== H || after.base.sha !== B) {
+              core.setFailed('STOP NO MERGE: binding changed after ready'); }
