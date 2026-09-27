@@ -1,0 +1,1 @@
+{"policy_id":"x","bound_repo":"Theiamania/workflow-orchestrator-ghaw-lab","types":{"create_issue":{"max":1,"credential":"ghost"}},"credentials":{}}

@@ -1,0 +1,435 @@
+name: WOGHAW E-04M mitigation probe (deterministic, no AI)
+on:
+  push:
+    branches: [woghaw-e04m-probe]
+permissions: {}
+concurrency:
+  group: woghaw-e04m-probe
+  cancel-in-progress: false
+jobs:
+  proposals:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          sparse-checkout: .wo
+      - name: stage g09_valid_1_of_1
+        run: mkdir -p out/g09_valid_1_of_1 && cp .wo/fixtures/valid_issue_1.json out/g09_valid_1_of_1/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-g09_valid_1_of_1
+          path: out/g09_valid_1_of_1/agent_output.json
+      - name: stage g09_e04c_2_of_1
+        run: mkdir -p out/g09_e04c_2_of_1 && cp .wo/fixtures/e04c_issue_2.json out/g09_e04c_2_of_1/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-g09_e04c_2_of_1
+          path: out/g09_e04c_2_of_1/agent_output.json
+      - name: stage fc_malformed
+        run: mkdir -p out/fc_malformed && cp .wo/fixtures/malformed.json out/fc_malformed/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-fc_malformed
+          path: out/fc_malformed/agent_output.json
+      - name: stage fc_unknown_type
+        run: mkdir -p out/fc_unknown_type && cp .wo/fixtures/unknown_type.json out/fc_unknown_type/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-fc_unknown_type
+          path: out/fc_unknown_type/agent_output.json
+      - name: stage fc_missing_policy
+        run: mkdir -p out/fc_missing_policy && cp .wo/fixtures/valid_issue_1.json out/fc_missing_policy/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-fc_missing_policy
+          path: out/fc_missing_policy/agent_output.json
+      - name: stage fc_policy_parse
+        run: mkdir -p out/fc_policy_parse && cp .wo/fixtures/valid_issue_1.json out/fc_policy_parse/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-fc_policy_parse
+          path: out/fc_policy_parse/agent_output.json
+      - name: stage fc_missing_credential
+        run: mkdir -p out/fc_missing_credential && cp .wo/fixtures/valid_issue_1.json out/fc_missing_credential/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-fc_missing_credential
+          path: out/fc_missing_credential/agent_output.json
+      - name: stage fc_ambiguous_target
+        run: mkdir -p out/fc_ambiguous_target && cp .wo/fixtures/ambiguous_target.json out/fc_ambiguous_target/agent_output.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-fc_ambiguous_target
+          path: out/fc_ambiguous_target/agent_output.json
+  detection_g09_valid_1_of_1:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-g09_valid_1_of_1
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/policy_issue.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION g09_valid_1_of_1::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_g09_valid_1_of_1:
+    needs: [proposals, detection_g09_valid_1_of_1]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_g09_valid_1_of_1.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-g09_valid_1_of_1
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED g09_valid_1_of_1::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  detection_g09_e04c_2_of_1:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-g09_e04c_2_of_1
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/policy_issue.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION g09_e04c_2_of_1::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_g09_e04c_2_of_1:
+    needs: [proposals, detection_g09_e04c_2_of_1]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_g09_e04c_2_of_1.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-g09_e04c_2_of_1
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED g09_e04c_2_of_1::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  detection_fc_malformed:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_malformed
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/policy_issue.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION fc_malformed::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_fc_malformed:
+    needs: [proposals, detection_fc_malformed]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_fc_malformed.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_malformed
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED fc_malformed::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  detection_fc_unknown_type:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_unknown_type
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/policy_issue.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION fc_unknown_type::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_fc_unknown_type:
+    needs: [proposals, detection_fc_unknown_type]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_fc_unknown_type.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_unknown_type
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED fc_unknown_type::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  detection_fc_missing_policy:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_missing_policy
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/absent_policy.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION fc_missing_policy::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_fc_missing_policy:
+    needs: [proposals, detection_fc_missing_policy]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_fc_missing_policy.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_missing_policy
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED fc_missing_policy::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  detection_fc_policy_parse:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_policy_parse
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/policy_bad.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION fc_policy_parse::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_fc_policy_parse:
+    needs: [proposals, detection_fc_policy_parse]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_fc_policy_parse.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_policy_parse
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED fc_policy_parse::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  detection_fc_missing_credential:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_missing_credential
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/policy_nocred.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION fc_missing_credential::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_fc_missing_credential:
+    needs: [proposals, detection_fc_missing_credential]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_fc_missing_credential.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_missing_credential
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED fc_missing_credential::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  detection_fc_ambiguous_target:
+    needs: [proposals]
+    if: always() && needs.proposals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download agent output artifact
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_ambiguous_target
+          path: /tmp/gh-aw/
+      - name: WO effect admission checkout
+        if: always()
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo_gate
+          sparse-checkout: .wo
+          persist-credentials: false
+      - name: WO effect admission
+        id: wo_effect_admission
+        if: always()
+        run: python3 _wo_gate/.wo/wo_effect_admission.py admit _wo_gate/.wo/policy_issue.json /tmp/gh-aw/agent_output.json | tee /tmp/decision.json; exit ${PIPESTATUS[0]}
+      - name: publish decision
+        if: always()
+        run: echo "::notice title=WO_DECISION fc_ambiguous_target::$(python3 -c 'import json;d=json.load(open("/tmp/decision.json"));print(d["decision"], d["reasons"][:2])' 2>&1)"
+  executor_fc_ambiguous_target:
+    needs: [proposals, detection_fc_ambiguous_target]
+    if: (!cancelled()) && needs.proposals.result != 'skipped' && needs.detection_fc_ambiguous_target.result == 'success'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: agent-fc_ambiguous_target
+          path: /tmp/gh-aw/
+      - name: spy executor (no token, no API call)
+        run: echo "::notice title=EXECUTOR_REACHED fc_ambiguous_target::would execute $(python3 -c 'import json;print(len([i for i in json.load(open("/tmp/gh-aw/agent_output.json"))["items"]]))') item(s)"
+  g06_pr_executor_least_privilege:
+    needs: [proposals]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const r = (await github.rest.repos.get({owner, repo})).data;
+            core.notice(`has_issues=${r.has_issues}`, {title: 'REPO_STATE'});
+            try {
+              const res = await github.rest.issues.create({owner, repo, title: '[woghaw-e04m] fallback-issue probe (must be rejected)', body: 'deterministic probe', labels: []});
+              core.error(`ISSUE_CREATED #${res.data.number}`, {title: 'ISSUE_EFFECT_MATERIALISED'});
+              core.setFailed('issue created');
+            } catch (e) {
+              const h = (e.response && e.response.headers) || {};
+              core.notice(JSON.stringify({status: e.status, message: e.message, accepted_permissions: h['x-accepted-github-permissions'] || null}), {title: 'ISSUE_CREATE_REJECTED'});
+            }
+            const pr = await github.rest.pulls.create({owner, repo, head: 'woghaw-e04m-probe', base: 'main', draft: true,
+              title: '[woghaw-e04m] least-privilege PR executor probe (auto-closed)', body: 'Deterministic probe: PR creation with contents+pull-requests write and NO issues permission. Closed immediately.'});
+            core.notice(`created PR #${pr.data.number} head=${pr.data.head.sha}`, {title: 'PR_CREATED_WITHOUT_ISSUES_PERMISSION'});
+            const cl = await github.rest.pulls.update({owner, repo, pull_number: pr.data.number, state: 'closed'});
+            core.notice(`PR #${cl.data.number} state=${cl.data.state}`, {title: 'PR_CLOSED'});
+  g06_control_issues_writer:
+    needs: [proposals]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const r = (await github.rest.repos.get({owner, repo})).data;
+            if (r.has_issues) { core.setFailed('Issues enabled: control would create a real issue; aborting'); return; }
+            try {
+              const res = await github.rest.issues.create({owner, repo, title: '[woghaw-e04m] fallback-issue probe (must be rejected)', body: 'deterministic probe', labels: []});
+              core.error(`ISSUE_CREATED #${res.data.number}`, {title: 'ISSUE_EFFECT_MATERIALISED'});
+              core.setFailed('issue created');
+            } catch (e) {
+              const h = (e.response && e.response.headers) || {};
+              core.notice(JSON.stringify({status: e.status, message: e.message, accepted_permissions: h['x-accepted-github-permissions'] || null}), {title: 'ISSUE_CREATE_REJECTED'});
+            }

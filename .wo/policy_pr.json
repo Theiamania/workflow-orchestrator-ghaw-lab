@@ -1,0 +1,3 @@
+{"policy_id": "WO-EP-E04M-PR-1", "bound_repo": "Theiamania/workflow-orchestrator-ghaw-lab",
+ "types": {"create_pull_request": {"max": 1, "credential": "pr-writer", "fallback_issue": false, "base_branch": "main"}},
+ "credentials": {"pr-writer": {"contents": "write", "pull-requests": "write", "issues": "none"}}}
