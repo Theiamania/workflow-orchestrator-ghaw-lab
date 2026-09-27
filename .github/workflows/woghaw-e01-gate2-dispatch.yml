@@ -1,0 +1,49 @@
+name: WOGHAW E-01 G-E01-2 instrumental dispatcher (no AI)
+# INSTRUMENTAL_TRIGGER_EXCEPTION: push is only the lab transport used because the session has no GitHub API
+# credential. The gate itself is the canonical workflow_dispatch workflow woghaw-e10-gate.yml on main.
+# No agent, no provider secrets, no PR/main mutation (token scope: actions only), exactly one dispatch.
+on:
+  push:
+    branches: [woghaw-e01-gate2-dispatch]
+permissions: {}
+concurrency:
+  group: woghaw-e01-gate2-dispatch
+  cancel-in-progress: false
+jobs:
+  dispatch_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch canonical gate (workflow_dispatch on main) and report it
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            if (String(context.runAttempt) !== '1') { core.setFailed('re-run refused: exactly one dispatch is authorised'); return; }
+            const {owner, repo} = context.repo;
+            const wf = 'woghaw-e10-gate.yml';
+            const t0 = new Date(Date.now() - 10000).toISOString();
+            await github.rest.actions.createWorkflowDispatch({owner, repo, workflow_id: wf, ref: 'main',
+              inputs: {case: 'E10B', gate_id: 'G-E01-2', pr_number: '5', expected_head_sha: '736d9e1fb32b1537c0316ee1b16ce5f58c1c0493'}});
+            core.notice(`workflow_dispatch ${wf}@main at ${new Date().toISOString()}`, {title: 'GATE_DISPATCHED'});
+            let run = null;
+            for (let i = 0; i < 20 && !run; i++) {
+              await new Promise(r => setTimeout(r, 6000));
+              const {data} = await github.rest.actions.listWorkflowRuns({owner, repo, workflow_id: wf, event: 'workflow_dispatch', created: `>=${t0}`, per_page: 5});
+              if (data.workflow_runs.length > 1) { core.setFailed(`more than one gate run found: ${data.workflow_runs.map(r => r.id)}`); return; }
+              run = data.workflow_runs[0] || null;
+            }
+            if (!run) { core.setFailed('gate run not found'); return; }
+            let pend = [];
+            for (let i = 0; i < 20; i++) {
+              run = (await github.rest.actions.getWorkflowRun({owner, repo, run_id: run.id})).data;
+              pend = (await github.rest.actions.getPendingDeploymentsForRun({owner, repo, run_id: run.id})).data;
+              if (run.status === 'waiting' && pend.length) break;
+              await new Promise(r => setTimeout(r, 6000));
+            }
+            core.notice(JSON.stringify({run_id: run.id, html_url: run.html_url, status: run.status, event: run.event,
+              head_branch: run.head_branch, head_sha: run.head_sha, actor: run.actor && run.actor.login,
+              triggering_actor: run.triggering_actor && run.triggering_actor.login,
+              pending: pend.map(p => ({environment: p.environment.name, environment_id: p.environment.id,
+                current_user_can_approve: p.current_user_can_approve, reviewers: p.reviewers.map(x => x.reviewer.login)}))}), {title: 'GATE_RUN'});
