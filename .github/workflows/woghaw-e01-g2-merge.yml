@@ -1,0 +1,65 @@
+name: WOGHAW E-01 G-E01-2 governed merge executor (no AI)
+# INSTRUMENTAL_TRIGGER_EXCEPTION (lab transport only). Identity: GITHUB_TOKEN (github-actions[bot]).
+# Scope: AR-E01-2 authorises merge of PR #5 exact head 736d9e1 into main. Fail-closed; merge pinned to the SHA.
+on:
+  push:
+    branches: [woghaw-e01-g2-merge]
+permissions: {}
+concurrency:
+  group: woghaw-e01-g2-merge
+  cancel-in-progress: false
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    steps:
+      - name: single attempt guard
+        run: test "$GITHUB_RUN_ATTEMPT" = "1"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: _wo
+          sparse-checkout: .wo
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: wo-journal
+          path: _journal
+          persist-credentials: false
+      - name: WO acceptance checker (pre-merge)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 _wo/.wo/wo_accept_v4.py _journal/journal/phase1.jsonl pre-merge | tee /tmp/acc.json; rc=${PIPESTATUS[0]}; echo "::notice title=WO_ACCEPTANCE_PRE_MERGE::$(cat /tmp/acc.json)"; exit $rc
+      - name: governed merge pinned to the bound head, then oracle
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const H = '736d9e1fb32b1537c0316ee1b16ce5f58c1c0493', B = 'b1bd74d4e1713127053f5ad6d95fabea502b1855';
+            const {owner, repo} = context.repo;
+            const pr0 = (await github.rest.pulls.get({owner, repo, pull_number: 5})).data;
+            const main0 = (await github.rest.repos.getBranch({owner, repo, branch: 'main'})).data.commit.sha;
+            if (pr0.state !== 'open' || pr0.merged || pr0.draft || pr0.head.sha !== H || pr0.base.sha !== B || main0 !== B) {
+              core.setFailed('STOP NO MERGE: binding changed before merge ' + JSON.stringify({state: pr0.state, draft: pr0.draft, merged: pr0.merged, head: pr0.head.sha, base: pr0.base.sha, main0})); return; }
+            let res;
+            try {
+              res = await github.rest.pulls.merge({owner, repo, pull_number: 5, sha: H, merge_method: 'merge'});
+            } catch (e) { core.setFailed('merge refused: ' + e.status + ' ' + e.message); return; }
+            core.notice(JSON.stringify({executor: 'github-actions[bot] (GITHUB_TOKEN)', at: new Date().toISOString(), http: res.status, data: res.data}), {title: 'MERGE_API_RESULT'});
+            const pr1 = (await github.rest.pulls.get({owner, repo, pull_number: 5})).data;
+            const mc = (await github.rest.repos.getCommit({owner, repo, ref: pr1.merge_commit_sha})).data;
+            const main1 = (await github.rest.repos.getBranch({owner, repo, branch: 'main'})).data.commit.sha;
+            const cmp = (await github.rest.repos.compareCommits({owner, repo, base: B, head: pr1.merge_commit_sha})).data;
+            const fMain = (await github.rest.repos.getContent({owner, repo, path: 'fixture/e01/normalize.py', ref: main1})).data;
+            const fHead = (await github.rest.repos.getContent({owner, repo, path: 'fixture/e01/normalize.py', ref: H})).data;
+            const oracle = {pr: {merged: pr1.merged, merged_at: pr1.merged_at, merge_commit_sha: pr1.merge_commit_sha, merged_by: pr1.merged_by && pr1.merged_by.login, state: pr1.state},
+              merge_commit: {sha: mc.sha, parents: mc.parents.map(p => p.sha), author: mc.commit.author, committer: mc.commit.committer},
+              main_head: main1, compare_base_to_merge: {status: cmp.status, ahead_by: cmp.ahead_by, files: cmp.files.map(f => ({filename: f.filename, status: f.status, sha: f.sha}))},
+              normalize_py_blob: {main: fMain.sha, approved_head: fHead.sha}};
+            core.notice(JSON.stringify(oracle), {title: 'MERGE_ORACLE'});
+            const ok = pr1.merged && pr1.merged_at && main1 === pr1.merge_commit_sha && mc.parents.map(p => p.sha).includes(H) &&
+              mc.parents.map(p => p.sha).includes(B) && fMain.sha === fHead.sha && cmp.files.length === 1 && cmp.files[0].filename === 'fixture/e01/normalize.py';
+            if (!ok) core.setFailed('ORACLE_MISMATCH');
