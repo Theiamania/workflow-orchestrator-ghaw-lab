@@ -1,0 +1,23 @@
+# WOGHAW E-05 ATT-E05-1 dispatcher — INSTRUMENTAL_TRIGGER_EXCEPTION (D10, J-0057). No agent, no provider secret.
+# Exactly one createWorkflowDispatch of woghaw-e05-recovery on woghaw-phase2-targets; the target runs as workflow_dispatch.
+name: WOGHAW E-05 ATT-E05-1 dispatcher
+on:
+  push:
+    branches: [woghaw-e05-att1-dispatch]
+permissions:
+  actions: write
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: createWorkflowDispatch (exactly once, no retry)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=$(curl -sS -o /tmp/resp -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/woghaw-e05-recovery.lock.yml/dispatches" \
+            -d '{"ref":"woghaw-phase2-targets","inputs":{"wo_operation_id":"OP-E05-RECOVERY-1","wo_attempt_id":"ATT-E05-1","wo_mode":"interrupt"}}')
+          echo "::notice title=WO_DISPATCH_ACK::{\"attempt_id\":\"ATT-E05-1\",\"http_status\":\"${code}\",\"at\":\"$(date -u +%FT%TZ)\",\"body\":$(jq -Rs . < /tmp/resp)}"
+          test "$code" = "204"
