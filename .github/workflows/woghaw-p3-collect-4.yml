@@ -1,0 +1,48 @@
+# WOGHAW FASE 3 — fourth copy into the WO Artifact Store (lab instrument; same method as E-14, J-0089..J-0091).
+# Deterministic, no agent, no provider secret. Appends ONE commit to refs/heads/wo-artifacts with CAS on its current head.
+name: WOGHAW P3 artifact copy 4
+on:
+  push:
+    branches: [woghaw-p3-collect-4]
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: woghaw-wo-artifacts
+  cancel-in-progress: false
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Copy artifacts and logs (content-addressed, CAS append)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUNS: "36342025494:OP-E03-BUDGET-1:ATT-E03-2"
+        run: |
+          set -euo pipefail
+          R="$GITHUB_REPOSITORY"; W=$(mktemp -d)
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          git -c http.extraheader="$AUTH" clone -q --branch wo-artifacts "https://github.com/$R.git" "$W/store"
+          cd "$W/store"; base=$(git rev-parse HEAD); git config user.name wo-p3; git config user.email wo-p3@invalid
+          now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+          put() { h=$(sha256sum "$1" | cut -c1-64); cp "$1" "objects/sha256/$h"; echo "$h"; }
+          for t in $RUNS; do
+            run=${t%%:*}; rest=${t#*:}; op=${rest%%:*}; att=${rest#*:}; items="[]"
+            gh api "repos/$R/actions/runs/$run/artifacts?per_page=100" > "$W/arts.json"
+            for id in $(jq -r '.artifacts[] | select(.expired == false) | .id' "$W/arts.json"); do
+              name=$(jq -r --argjson i "$id" '.artifacts[] | select(.id == $i) | .name' "$W/arts.json")
+              gh api "repos/$R/actions/artifacts/$id/zip" > "$W/a.zip"; h=$(put "$W/a.zip"); sz=$(stat -c %s "$W/a.zip")
+              items=$(jq -c --arg n "$name" --argjson id "$id" --arg h "$h" --argjson s "$sz" --arg t "$(now)" '. + [{kind:"artifact",name:$n,github_artifact_id:$id,sha256:$h,size:$s,copied_at:$t,source:"actions artifact zip"}]' <<<"$items")
+            done
+            gh api "repos/$R/actions/runs/$run/logs" > "$W/logs.zip"; h=$(put "$W/logs.zip"); sz=$(stat -c %s "$W/logs.zip")
+            items=$(jq -c --arg h "$h" --argjson s "$sz" --arg t "$(now)" '. + [{kind:"run_logs",name:"run-logs",sha256:$h,size:$s,copied_at:$t,source:"actions run logs zip"}]' <<<"$items")
+            gh api "repos/$R/actions/runs/$run" > "$W/run.json"; h=$(put "$W/run.json"); items=$(jq -c --arg h "$h" '. + [{kind:"run_metadata",name:"run.json",sha256:$h}]' <<<"$items")
+            gh api "repos/$R/actions/runs/$run/jobs?per_page=50" > "$W/jobs.json"; h=$(put "$W/jobs.json"); items=$(jq -c --arg h "$h" '. + [{kind:"jobs_metadata",name:"jobs.json",sha256:$h}]' <<<"$items")
+            jq -n --arg run "$run" --arg att "$att" --arg op "$op" --arg t "$(now)" --arg by "$GITHUB_RUN_ID" --argjson items "$items" \
+              '{schema:"wo-artifact-manifest/1",run_id:($run|tonumber),operation_id:$op,attempt_id:$att,copied_at:$t,copied_by_run:($by|tonumber),items:$items}' > "manifests/run-$run.json"
+          done
+          ( cd manifests && sha256sum run-*.json ) > manifests/SHA256SUMS
+          git add -A; git commit -qm "WO Artifact Store: FASE 3 copy (E-03 ATT-E03-2 run)"; c=$(git rev-parse HEAD)
+          git -c http.extraheader="$AUTH" push -q --force-with-lease=refs/heads/wo-artifacts:$base "https://github.com/$R.git" "$c:refs/heads/wo-artifacts"
+          echo "::notice title=WO_P3_ARTIFACT_STORE::{\"base\":\"$base\",\"commit\":\"$c\"}"
