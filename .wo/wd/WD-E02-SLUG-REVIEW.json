@@ -1,0 +1,21 @@
+{
+  "schema": "wo-workflow-definition/lab-1",
+  "wd_id": "WD-E02-SLUG-REVIEW",
+  "version": 1,
+  "purpose": "WOGHAW E-02: one provider-neutral WO Workflow Definition, two roles, routed to different engines by a Strategy/routing profile",
+  "input": {"text": "Hello, World  Example", "rule": "lowercase; replace every run of characters that are not a-z or 0-9 with a single hyphen; strip leading and trailing hyphens"},
+  "roles": {
+    "implement": {
+      "task": "Apply the rule to the input text and produce the resulting slug.",
+      "result": "the slug only"
+    },
+    "audit": {
+      "task": "Independently check whether the candidate slug `hello-world-example` is exactly the result of applying the rule to the input text.",
+      "result": "PASS if it is exactly correct, otherwise FAIL"
+    }
+  },
+  "output_contract": {"safe_output": "wo-result", "field": "value", "cardinality": "exactly one call", "effect": "none (inert executor, permissions {})"},
+  "tools": {"shell": "none", "edit": "none", "github": "none", "web": "none"},
+  "effects": {"github_write": "none"},
+  "envelope": {"max_ai_credits": 30, "max_turns": 3, "harness_max_retries": 0, "startup_retries": 0, "timeout_minutes": 5, "threat_detection": false}
+}
