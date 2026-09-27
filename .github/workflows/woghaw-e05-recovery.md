@@ -34,8 +34,8 @@ timeout-minutes: 3
 tools:
   timeout: 600
   bash:
-    - "bash .wo/e05_operation.sh interrupt ATT-E05-1"
-    - "bash .wo/e05_operation.sh complete ATT-E05-2"
+    - "bash .wo/e05_operation.sh interrupt ATT-E05-2"
+    - "bash .wo/e05_operation.sh complete ATT-E05-3"
   cli-proxy: false
   edit: false
   github: false
