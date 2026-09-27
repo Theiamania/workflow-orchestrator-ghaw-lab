@@ -1,0 +1,26 @@
+# WOGHAW E-06 — deterministic dispatch target (lab instrument, no agent, no provider secret, no GitHub write).
+# The logical dispatch identity (wo_dispatch_id) is carried in run-name, i.e. in the Actions API field
+# display_title, so it can be looked up without logs. The push trigger only registers the workflow on this
+# branch; the job is skipped for push events.
+name: WOGHAW E-06 dispatch target
+run-name: "WOGHAW E-06 ${{ inputs.wo_dispatch_id }}"
+on:
+  workflow_dispatch:
+    inputs:
+      wo_dispatch_id:
+        description: WO logical dispatch identity
+        required: true
+        type: string
+  push:
+    branches: [woghaw-phase2-targets]
+permissions: {}
+jobs:
+  target:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: WO E-06 target
+        env:
+          WO_DISPATCH_ID: ${{ inputs.wo_dispatch_id }}
+        run: echo "::notice title=WO_E06_TARGET::{\"wo_dispatch_id\":\"${WO_DISPATCH_ID}\",\"run_id\":\"${GITHUB_RUN_ID}\",\"run_attempt\":\"${GITHUB_RUN_ATTEMPT}\"}"
