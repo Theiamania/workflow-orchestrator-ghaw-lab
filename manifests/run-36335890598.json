@@ -1,0 +1,28 @@
+{
+  "schema": "wo-artifact-manifest/1",
+  "run_id": 36335890598,
+  "operation_id": "OP-E11-OWNERSHIP-1",
+  "attempt_id": "ATT-E11-1",
+  "copied_at": "2026-09-27T17:39:40Z",
+  "copied_by_run": 36337733319,
+  "items": [
+    {
+      "kind": "run_logs",
+      "name": "run-logs",
+      "sha256": "9aac1ddeb76cb17411777b6defeb6c306a4c78c77b718afcae534eb5e3e8dd9e",
+      "size": 19044,
+      "copied_at": "2026-09-27T17:39:39Z",
+      "source": "actions run logs zip"
+    },
+    {
+      "kind": "run_metadata",
+      "name": "run.json",
+      "sha256": "6ff636af58c502016e5f51fa2f53e45c0029e6c5433d799e607bcf7b217d8fe8"
+    },
+    {
+      "kind": "jobs_metadata",
+      "name": "jobs.json",
+      "sha256": "43d77f74fa2ca58d62a4c86db15cf6e5a55af938caf0f43a535ac75b76b2b4ab"
+    }
+  ]
+}
