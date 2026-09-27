@@ -1,0 +1,55 @@
+# WOGHAW E-14 — copy GitHub-retained evidence of two Runs into the WO Artifact Store (lab instrument).
+# Deterministic, no agent, no provider secret. Reads Actions artifacts + run logs (retention not guaranteed) and
+# commits them content-addressed to refs/heads/wo-artifacts (created with CAS, expected absent). No other effect.
+name: WOGHAW E-14 artifact copy
+on:
+  push:
+    branches: [woghaw-e14-collect]
+permissions:
+  actions: read
+  contents: write
+concurrency:
+  group: woghaw-e14-collect
+  cancel-in-progress: false
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Copy artifacts and logs (content-addressed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUNS: "36321461275:ATT-E05-2 36322447560:ATT-E05-3"
+        run: |
+          set -euo pipefail
+          R="$GITHUB_REPOSITORY"; W=$(mktemp -d); mkdir -p "$W/store/objects/sha256" "$W/store/manifests"
+          cd "$W/store"; git init -q .; git config user.name wo-e14; git config user.email wo-e14@invalid
+          now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+          put() { h=$(sha256sum "$1" | cut -c1-64); cp "$1" "objects/sha256/$h"; echo "$h"; }
+          for pair in $RUNS; do
+            run=${pair%%:*}; att=${pair##*:}; items="[]"
+            gh api "repos/$R/actions/runs/$run/artifacts?per_page=100" > "$W/arts.json"
+            for id in $(jq -r '.artifacts[] | select(.expired == false) | .id' "$W/arts.json"); do
+              name=$(jq -r --argjson i "$id" '.artifacts[] | select(.id == $i) | .name' "$W/arts.json")
+              gh api "repos/$R/actions/artifacts/$id/zip" > "$W/a.zip"
+              h=$(put "$W/a.zip"); sz=$(stat -c %s "$W/a.zip")
+              items=$(jq -c --arg k artifact --arg n "$name" --argjson id "$id" --arg h "$h" --argjson s "$sz" --arg t "$(now)" \
+                '. + [{kind:$k,name:$n,github_artifact_id:$id,sha256:$h,size:$s,copied_at:$t,source:"actions artifact zip"}]' <<<"$items")
+            done
+            gh api "repos/$R/actions/runs/$run/logs" > "$W/logs.zip"
+            h=$(put "$W/logs.zip"); sz=$(stat -c %s "$W/logs.zip")
+            items=$(jq -c --arg h "$h" --argjson s "$sz" --arg t "$(now)" '. + [{kind:"run_logs",name:"run-logs",sha256:$h,size:$s,copied_at:$t,source:"actions run logs zip"}]' <<<"$items")
+            gh api "repos/$R/actions/runs/$run" > "$W/run.json"; h=$(put "$W/run.json")
+            items=$(jq -c --arg h "$h" '. + [{kind:"run_metadata",name:"run.json",sha256:$h,source:"actions run API"}]' <<<"$items")
+            gh api "repos/$R/actions/runs/$run/jobs?per_page=50" > "$W/jobs.json"; h=$(put "$W/jobs.json")
+            items=$(jq -c --arg h "$h" '. + [{kind:"jobs_metadata",name:"jobs.json",sha256:$h,source:"actions jobs API"}]' <<<"$items")
+            jq -n --arg run "$run" --arg att "$att" --arg op "OP-E05-RECOVERY-1" --arg t "$(now)" --arg by "$GITHUB_RUN_ID" --argjson items "$items" \
+              '{schema:"wo-artifact-manifest/1",run_id:($run|tonumber),operation_id:$op,attempt_id:$att,copied_at:$t,copied_by_run:($by|tonumber),items:$items}' > "manifests/run-$run.json"
+          done
+          jq -n '[inputs | {run_id, attempt_id, manifest_sha256: null}]' manifests/*.json > /dev/null
+          ( cd manifests && sha256sum run-*.json ) > manifests/SHA256SUMS
+          git add -A; git commit -qm "WO Artifact Store: E-14 copy of runs 36321461275 36322447560"
+          c=$(git rev-parse HEAD)
+          AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          git -c http.extraheader="$AUTH" push -q --force-with-lease=refs/heads/wo-artifacts: "https://github.com/$R.git" "$c:refs/heads/wo-artifacts"
+          echo "::notice title=WO_E14_ARTIFACT_STORE::{\"commit\":\"$c\",\"manifests_sha256sums\":\"$(tr '\n' ';' < manifests/SHA256SUMS)\",\"objects\":$(ls objects/sha256 | wc -l)}"
