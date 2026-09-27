@@ -57,7 +57,29 @@ def _validate_policy(p):
     return p
 
 
-def admit(policy_path, output_path):
+def _raw_counts(raw_path):
+    """Count proposals per type in the raw safe-outputs NDJSON (items the collector may have dropped)."""
+    try:
+        lines = open(raw_path, encoding="utf-8").read().splitlines()
+    except FileNotFoundError:
+        raise Hold("raw_safe_outputs_missing")
+    counts = {}
+    for n, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            it = json.loads(line)
+        except ValueError:
+            raise Hold(f"raw_safe_outputs_parse_failure: line {n}")
+        t = it.get("type") if isinstance(it, dict) else None
+        if not isinstance(t, str) or not t:
+            raise Hold(f"raw_safe_outputs_malformed: line {n} without type")
+        t = t.replace("-", "_")
+        counts[t] = counts.get(t, 0) + 1
+    return counts
+
+
+def admit(policy_path, output_path, raw_path=None):
     decision = {"decision": None, "reasons": [], "counts": {}, "per_type": {}}
     try:
         policy, policy_sha = _load_json(policy_path, "policy")
@@ -92,10 +114,19 @@ def admit(policy_path, output_path):
         errors = out.get("errors") or []
         if not isinstance(errors, list):
             raise Hold("agent_output_malformed: 'errors' is not a list")
-        # the collector records over-max truncation as an error line; any such line means the set is incomplete
+        # the collector drops over-max and invalid lines from 'items' and records them only in 'errors':
+        # any collector error means the set WO sees is not the complete proposed set
         for e in errors:
-            if "Too many items" in str(e):
-                decision["reasons"].append(f"collector_truncated_proposals: {e}")
+            decision["reasons"].append(f"collector_error_incomplete_set: {str(e)[:200]}")
+        if raw_path is not None:
+            raw = _raw_counts(raw_path)
+            decision["raw_counts"] = raw
+            for t, n in raw.items():
+                if n != decision["counts"].get(t, 0):
+                    decision["reasons"].append(f"raw_vs_collected_mismatch: {t} raw={n} collected={decision['counts'].get(t, 0)}")
+                decision["counts"][t] = max(n, decision["counts"].get(t, 0))
+                if t not in types and t not in PASSIVE_TYPES and f"unknown_or_unauthorised_type: {t}" not in decision["reasons"]:
+                    decision["reasons"].append(f"unknown_or_unauthorised_type: {t}")
         for t, rule in types.items():
             n = decision["counts"].get(t, 0)
             if n > rule["max"]:
@@ -150,6 +181,13 @@ def audit_lock(lock_path, policy_path, gate_step_name):
         # 1. gate wired before the privileged executor, fail-closed
         if gate_step_name not in det:
             f.append("gate_step_absent_from_detection_job")
+        # second admission point on the exact bytes the executor will process, before the handler step
+        so_steps = so.split("    steps:", 1)[-1]
+        g, h = so_steps.find(gate_step_name), so_steps.find("- name: Process Safe Outputs")
+        if g < 0 or h < 0 or g > h:
+            f.append("gate_step_absent_before_executor_handler (safe-outputs.steps)")
+        elif re.search(r"- name: Process Safe Outputs\n(?:        (?!if:).*\n)*        if:", so_steps[h:h + 400]):
+            f.append("executor_handler_has_explicit_if (could run after a failed admission)")
         if 'GH_AW_DETECTION_CONTINUE_ON_ERROR: "false"' not in det:
             f.append("detection_not_strict (continue-on-error must be false, otherwise a failed gate does not block)")
         if "needs.detection.result == 'success'" not in so.split("steps:")[0]:
@@ -209,14 +247,14 @@ def audit_lock(lock_path, policy_path, gate_step_name):
 
 def main(argv):
     if len(argv) >= 3 and argv[0] == "admit":
-        d = admit(argv[1], argv[2])
+        d = admit(argv[1], argv[2], argv[3] if len(argv) >= 4 else None)
         print(json.dumps(d, sort_keys=True))
         return 0 if d["decision"] == "ALLOW" else 1
     if len(argv) >= 4 and argv[0] == "audit-lock":
         r = audit_lock(argv[1], argv[2], argv[3])
         print(json.dumps(r, sort_keys=True))
         return 0 if r["audit"] == "PASS" else 1
-    print("usage: admit <policy.json> <agent_output.json> [detection_result.json] | "
+    print("usage: admit <policy.json> <agent_output.json> [safeoutputs.jsonl] | "
           "audit-lock <lock.yml> <policy.json> <gate_step_name>", file=sys.stderr)
     return 1
 
