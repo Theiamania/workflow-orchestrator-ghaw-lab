@@ -1,0 +1,82 @@
+{
+  "schema": "wo-artifact-manifest/1",
+  "run_id": 36469274616,
+  "operation_id": "OP-E17-TOOLCHAIN-1",
+  "attempt_id": "ATT-E17-1",
+  "copied_at": "2026-09-28T19:09:43Z",
+  "copied_by_run": 36470270050,
+  "items": [
+    {
+      "kind": "artifact",
+      "name": "usage",
+      "github_artifact_id": 10991312087,
+      "sha256": "7e30826e092dc414e9db76fbffb44fffe9a9ac1579a33c8c02e85dbf753ecd18",
+      "size": 2748,
+      "copied_at": "2026-09-28T19:09:37Z",
+      "source": "actions artifact zip"
+    },
+    {
+      "kind": "artifact",
+      "name": "activation",
+      "github_artifact_id": 10991082934,
+      "sha256": "60f6b272f57f4247140d4f8606ef6313724289da4b02566aaf0d70278b32a672",
+      "size": 251871,
+      "copied_at": "2026-09-28T19:09:38Z",
+      "source": "actions artifact zip"
+    },
+    {
+      "kind": "artifact",
+      "name": "info",
+      "github_artifact_id": 10990832717,
+      "sha256": "4849782a13e39f93a3be04599139efe5bbb16b6f497ad78fb910771138b54be7",
+      "size": 652,
+      "copied_at": "2026-09-28T19:09:38Z",
+      "source": "actions artifact zip"
+    },
+    {
+      "kind": "artifact",
+      "name": "safe-outputs-items",
+      "github_artifact_id": 10990813389,
+      "sha256": "c15b124932c8a07d7d9426d247f1cbadea95248b5d2efc356e1befb407249b39",
+      "size": 301,
+      "copied_at": "2026-09-28T19:09:39Z",
+      "source": "actions artifact zip"
+    },
+    {
+      "kind": "artifact",
+      "name": "agent-output-fallback",
+      "github_artifact_id": 10990708109,
+      "sha256": "513761c35aef6cfab4588924ec6c928b28ad3172218605d16518c3b4f1dca476",
+      "size": 1876,
+      "copied_at": "2026-09-28T19:09:39Z",
+      "source": "actions artifact zip"
+    },
+    {
+      "kind": "artifact",
+      "name": "agent",
+      "github_artifact_id": 10990633062,
+      "sha256": "33f09022ea25942562817c421adee5f23ed068d37670eec8c743054795ca1469",
+      "size": 87556,
+      "copied_at": "2026-09-28T19:09:40Z",
+      "source": "actions artifact zip"
+    },
+    {
+      "kind": "run_logs",
+      "name": "run-logs",
+      "sha256": "f60014bfb7c42c3274825ffa553122543563df9a2c15ed52fa1b5ec4f2309114",
+      "size": 266803,
+      "copied_at": "2026-09-28T19:09:42Z",
+      "source": "actions run logs zip"
+    },
+    {
+      "kind": "run_metadata",
+      "name": "run.json",
+      "sha256": "b67667c8216c9be599ed2b9ffbe7650f9f3609525b00a1563cf5a8823f1e17bc"
+    },
+    {
+      "kind": "jobs_metadata",
+      "name": "jobs.json",
+      "sha256": "0758be3bb91fe8057c768ad73bd89892ae4360082cf7a151c3955d0afb112647"
+    }
+  ]
+}
